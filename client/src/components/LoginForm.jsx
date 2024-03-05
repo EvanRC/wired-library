@@ -1,14 +1,22 @@
 // see SignupForm.js for comments
 import { useState } from 'react';
 import { Form, Button, Alert } from 'react-bootstrap';
-
+import { useMutation } from '@apollo/client';
 import { loginUser } from '../utils/API';
 import Auth from '../utils/auth';
+import { LOGIN_USER } from '../graphQl/mutations';
 
 const LoginForm = () => {
   const [userFormData, setUserFormData] = useState({ email: '', password: '' });
   const [validated] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+
+  const [login, { error }] = useMutation(LOGIN_USER, {
+    onCompleted: (data) => {
+      const { token } = data.login;
+      Auth.login(token); // Automattically log the user in on successful completion
+    }
+  });
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -19,32 +27,28 @@ const LoginForm = () => {
     event.preventDefault();
 
     // check if form has everything (as per react-bootstrap docs)
-    const form = event.currentTarget;
-    if (form.checkValidity() === false) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+   const form = event.currentTarget;
+   if (!form.checkValidity()) {
+    event.stopPropagation();
+    setShowAlert(true); // Show alert on form invalid
+    return;
+   }
 
-    try {
-      const response = await loginUser(userFormData);
-
-      if (!response.ok) {
-        throw new Error('something went wrong!');
-      }
-
-      const { token, user } = await response.json();
-      console.log(user);
-      Auth.login(token);
-    } catch (err) {
-      console.error(err);
-      setShowAlert(true);
-    }
-
+   try {
+    await login({
+      variables: { ...userFormData }
+    });
+    
+    //Reset form data after successful login
     setUserFormData({
       username: '',
       email: '',
       password: '',
     });
+   } catch (err) {
+    console.error(err);
+    setShowAlert(true); // Show alert on error
+   }
   };
 
   return (

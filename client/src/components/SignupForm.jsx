@@ -1,16 +1,24 @@
 import { useState } from 'react';
 import { Form, Button, Alert } from 'react-bootstrap';
-
-import { createUser } from '../utils/API';
+import { useMutation } from '@apollo/client';
+import { ADD_USER } from '../graphQl/mutations';
 import Auth from '../utils/auth';
 
 const SignupForm = () => {
   // set initial form state
   const [userFormData, setUserFormData] = useState({ username: '', email: '', password: '' });
   // set state for form validation
-  const [validated] = useState(false);
+  const [validated, setValidated] = useState(false);
   // set state for alert
   const [showAlert, setShowAlert] = useState(false);
+
+  // Apollo client useMutation hook for ADD_USER
+  const [addUser, { error }] = useMutation(ADD_USER, {
+    onCompleted: (data) => {
+      const { token } = data.addUser;
+      Auth.login(token);
+    }
+  });
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -23,30 +31,27 @@ const SignupForm = () => {
     // check if form has everything (as per react-bootstrap docs)
     const form = event.currentTarget;
     if (form.checkValidity() === false) {
-      event.preventDefault();
       event.stopPropagation();
+      setValidated(true); // Trigger validation feedback
+      return; // Prevet further exection if the form is invalid
     }
 
+    // Attempt to sign up witht the provided user data
     try {
-      const response = await createUser(userFormData);
+      await addUser({
+        variables: { ...userFormData }
+      });
 
-      if (!response.ok) {
-        throw new Error('something went wrong!');
-      }
-
-      const { token, user } = await response.json();
-      console.log(user);
-      Auth.login(token);
+      // Clear form data after successful sign up
+      setUserFormData({
+        username: '',
+        email: '',
+        password: '',
+      });
     } catch (err) {
       console.error(err);
-      setShowAlert(true);
+      setShowAlert(true); // Show alert on error
     }
-
-    setUserFormData({
-      username: '',
-      email: '',
-      password: '',
-    });
   };
 
   return (
