@@ -4,7 +4,7 @@ import { setContext } from '@apollo/client/link/context';
 // HTTP connection to API
 const httpLink = createHttpLink({
     // You should use an absolute URL here
-    uri: '/graphql',
+    uri: 'http://localhost:3001/graphql',
 });
 
 // Middleware function that will retrieve the token and attach it to the request.

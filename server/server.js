@@ -1,43 +1,43 @@
 const express = require('express');
 const path = require('path');
-const { ApolloServer } = require('apollo-server-express'); // Import the apollo server
-const { typeDefs, resolvers } = require('./schemas'); // Import typeDefs and resolvers
-const db = require('./config/connection'); 
-const { authMiddleware } = require('./utils/auth'); 
-const routes = require('./routes');
+const { ApolloServer } = require('apollo-server-express');
+const { typeDefs } = require('./schemas/typeDefs');
+const { resolvers } = require('./schemas/resolvers')
+const db = require('./config/connection');
+const { authMiddleware } = require('./utils/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  context: ({ req }) => authMiddleware({ req }),
-}); 
+async function startApolloServer(typeDefs, resolvers) {
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: ({ req }) => authMiddleware({ req }),
+  });
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+  await server.start();  // Start the Apollo server
 
+  server.applyMiddleware({ app });
 
-// if we're in production, serve client/build as static assets
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json());
+
+  // Serve up static assets
+  if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, '../client/dist')));
+  }
+
+  // Replace the wildcard get for serving up the React front-end
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+
+  await new Promise(resolve => db.once('open', resolve));
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);
+  });
 }
 
-// app.use(routes);
-
-// Apply the Apollo server middleware to the express app
-server.applyMiddleware({ app });
-
-db.once('open', () => {
-  app.listen(PORT, () => {
-    console.log('Now listening on localhost:${PORT}');
-    // Log the URL where we can test our GQL API
-    console.log(`🚀 GraphQL ready at http://localhost:${PORT}${server.graphqlPath}`);
-  });
-});
-
-// Serve up static assets
-app/get('*', ( req, res ) => {
-  res.sendFile(path.join(__dirname, '../client/build/index.html'));
-});
+startApolloServer(typeDefs, resolvers);

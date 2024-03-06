@@ -38,6 +38,7 @@ const SignupForm = () => {
 
     // Attempt to sign up witht the provided user data
     try {
+      console.log(userFormData); // Log the variables to be sent
       await addUser({
         variables: { ...userFormData }
       });
